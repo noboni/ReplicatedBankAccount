@@ -200,24 +200,24 @@ public class ReplicatedBankAccount {
             }
 
         } else if (input.matches("checkTxStatus (.*)")) {
-            String[] arrOfStr = input.split(" ");
-            String transactionId = arrOfStr[1];
+            String firstPart = input.substring(1,input.indexOf(" ",1));
+            String secondPart = input.substring(firstPart.length()+2);;
             //generate transaction id if it is from the file
-            if (arrOfStr[1].contains("<")) {
-                transactionId = clientName + " " + (replicatedAccountInfo.getOutStandingCounter() - 1);
+            if (secondPart.contains("<")) {
+                secondPart = clientName + " " + (replicatedAccountInfo.getOutStandingCounter() - 1);
             }
-            System.out.println("\n\nTransaction status of " + transactionId);
-            String finalTransactionId = transactionId;
+            System.out.println("\n\nTransaction status of " + secondPart);
+            String finalTransactionId = secondPart;
             Transaction transactionInExecuted = replicatedAccountInfo.getExecutedList().stream()
                     .filter(it -> it.getUniqueId().equals(finalTransactionId)).findFirst().orElse(null);
             if (transactionInExecuted != null) {
-                System.out.println(transactionInExecuted.getCommand() + "is executed.");
+                System.out.println(transactionInExecuted.getCommand() + " is executed.");
                 return;
             }
             Transaction transactionInOutstanding = replicatedAccountInfo.getOutstandingList().stream()
-                    .filter(it -> it.getUniqueId().equals(arrOfStr[1])).findFirst().orElse(null);
+                    .filter(it -> it.getUniqueId().equals(finalTransactionId)).findFirst().orElse(null);
             if (transactionInOutstanding != null) {
-                System.out.println(transactionInOutstanding.getCommand() + "is not executed yet.");
+                System.out.println(transactionInOutstanding.getCommand() + " is not executed yet.");
             } else {
                 System.out.println("Transaction not found");
             }
