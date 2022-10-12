@@ -9,6 +9,7 @@ public class Listener implements AdvancedMessageListener {
         try {
                 Transaction transaction = (Transaction) message.getObject();
                 switch (transaction.getTransactionType()){
+                    //call the functions according to the type
                     case DEPOSIT:
                         ReplicatedBankAccount.replicatedAccountInfo.addDeposit(transaction);
                         break;

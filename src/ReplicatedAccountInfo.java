@@ -60,20 +60,32 @@ public class ReplicatedAccountInfo implements Serializable {
         executedList.add(transaction);
     }
 
+    /**
+     * add in the outstanding list when the function is called
+     * @param transaction
+     */
     public synchronized void addInOutStandingList(Transaction transaction) {
-        this.outStandingCounter++;
         this.outstandingList.add(transaction);
+        this.outStandingCounter++;
     }
 
+    /**
+     * add interest to the balance when the function is called and remove from the outstanding and add it to the executed
+     * @param transaction
+     */
     public synchronized void addInterest(Transaction transaction) {
         Transaction transInList = this.outstandingList.stream()
                 .filter(it -> it.getUniqueId().equals(transaction.getUniqueId())).findFirst().orElse(null);
         this.balance = this.balance + (1.0 + transaction.getAmount() / 100.0);
-        this.orderCounter++;
         this.executedList.add(transaction);
+        this.orderCounter++;
         this.outstandingList.remove(transInList);
     }
 
+    /**
+     * get synced balance when the function called
+     * @param transaction
+     */
     public synchronized void getSyncedBalance(Transaction transaction) {
         Transaction transInList = this.outstandingList.stream()
                 .filter(it -> it.getUniqueId().equals(transaction.getUniqueId())).findFirst().orElse(null);
@@ -81,12 +93,16 @@ public class ReplicatedAccountInfo implements Serializable {
         this.outstandingList.remove(transInList);
     }
 
+    /**
+     * add deposit when the function is called
+     * @param transaction
+     */
     public synchronized void addDeposit(Transaction transaction) {
         Transaction transInList = this.outstandingList.stream()
                 .filter(it -> it.getUniqueId().equals(transaction.getUniqueId())).findFirst().orElse(null);
         this.balance = this.balance + transaction.getAmount();
-        this.orderCounter++;
         this.executedList.add(transaction);
+        this.orderCounter++;
         this.outstandingList.remove(transInList);
     }
 

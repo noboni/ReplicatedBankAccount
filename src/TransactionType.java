@@ -1,3 +1,6 @@
+/*
+type of the transactions
+ */
 public enum TransactionType {
     DEPOSIT,
     INTEREST,

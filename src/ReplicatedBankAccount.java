@@ -23,9 +23,10 @@ public class ReplicatedBankAccount {
 
 
     public synchronized static void main(String[] args) throws InterruptedException {
-        String serverAddress = args[0];
-        String accountName = args[1];
-        int numberOfReplica = Integer.parseInt(args[2]);
+        //Get all the argument info
+        String serverAddress = args[0].trim();
+        String accountName = args[1].trim();
+        int numberOfReplica = Integer.parseInt(args[2].trim());
         String fileName = null;
         if (args.length == 4) {
             fileName = args[3];
@@ -35,23 +36,26 @@ public class ReplicatedBankAccount {
         Random rand = new Random();
         int id = rand.nextInt();
         String clientName;
-        System.out.println(id + "\n\n\n\n");
         try {
             connection.add(listener);
-            connection.connect(InetAddress.getByName("127.0.0.1"), 8016, String.valueOf(id), false, true);
+            connection.connect(InetAddress.getByName(serverAddress), 8016, String.valueOf(id), false, true);
 
+            //Create a group and join it with  the account
             SpreadGroup group = new SpreadGroup();
-            group.join(connection, "group");
-            System.out.println("Spread group name: " + connection.getPrivateGroup().toString());
+            group.join(connection, accountName);
             clientName = connection.getPrivateGroup().toString();
-
+            System.out.println("Spread group name: " + clientName);
+            System.out.println(membershipReplica.length);
+            //wait for the listener to check if the  number of replicas joined as expected
             synchronized (listener) {
-                if (membershipReplica.length < 2) {
-                    System.out.println("Waiting");
+                if (membershipReplica.length < numberOfReplica) {
                     listener.wait();
                 }
 
             }
+
+            // create a scheduler thread and run every 10 seconds to check if any thing is left in the outstanding list
+            // and send it to the listener.
             ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
             exec.scheduleWithFixedDelay(new Runnable() {
                 @Override
@@ -76,7 +80,8 @@ public class ReplicatedBankAccount {
                 }
             }, 0, 10, TimeUnit.SECONDS);
 
-            if(fileName!= null){
+            //if there is a file take input from the file
+            if (fileName != null) {
                 BufferedReader br = new BufferedReader(new FileReader(new File(fileName)));
                 String input = br.readLine();
                 while (input != null) {
@@ -84,11 +89,12 @@ public class ReplicatedBankAccount {
                     input = br.readLine();
                 }
 
-            }else {
+            }
+            //else take input from the console
+            else {
                 while (true) {
                     Scanner scanner = new Scanner(System.in);
                     String input = scanner.nextLine();
-                    System.out.println(input);
                     inputManipulation(clientName, input);
 
                 }
@@ -106,10 +112,19 @@ public class ReplicatedBankAccount {
         }
     }
 
+    /**
+     * match the input patterns and call the functions accordingly
+     *
+     * @param clientName
+     * @param input
+     * @throws InterruptedException
+     */
     private static void inputManipulation(String clientName, String input) throws InterruptedException {
         if (input.equalsIgnoreCase("exit")) {
+            System.out.println("\n\nExiting");
             System.exit(0);
         } else if (input.equalsIgnoreCase("memberInfo")) {
+            System.out.println("\n\nMembershipInfo:");
             for (int i = 0; i < membershipReplica.length; i++) {
                 System.out.println(membershipReplica[i].toString());
             }
@@ -122,8 +137,9 @@ public class ReplicatedBankAccount {
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Invalid input");
             }
-            Thread.sleep(value*1000);
-        } else if (input.matches("deposit ([0-9]*)\\.([0-9]*)")) {
+            System.out.println("\n\nSleeping for " + value + " seconds");
+            Thread.sleep(value * 1000);
+        } else if (input.matches("deposit ([0-9]*)(\\.)?([0-9]*)")) {
             String[] arrOfStr = input.split(" ");
             double value;
             try {
@@ -131,6 +147,8 @@ public class ReplicatedBankAccount {
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Invalid input");
             }
+            //generate transaction and add to the outstanding list
+            System.out.println("\n\n" + input);
             Transaction transaction = new Transaction();
             transaction.setCommand(input);
             transaction.setUniqueId(clientName + " " +
@@ -138,7 +156,8 @@ public class ReplicatedBankAccount {
             transaction.setAmount(value);
             transaction.setTransactionType(TransactionType.DEPOSIT);
             replicatedAccountInfo.addInOutStandingList(transaction);
-        } else if (input.matches("addInterest ([0-9]*)\\.([0-9]*)")) {
+        } else if (input.matches("addInterest ([0-9]*)(\\.)?([0-9]*)")) {
+            System.out.println("\n\n" + input);
             String[] arrOfStr = input.split(" ");
             double value;
             try {
@@ -146,6 +165,7 @@ public class ReplicatedBankAccount {
             } catch (NumberFormatException e) {
                 throw new IllegalArgumentException("Invalid input");
             }
+            //generate transaction and add to the outstanding list
             Transaction transaction = new Transaction();
             transaction.setCommand(input);
             transaction.setUniqueId(clientName + " " +
@@ -154,8 +174,11 @@ public class ReplicatedBankAccount {
             transaction.setTransactionType(TransactionType.INTEREST);
             replicatedAccountInfo.addInOutStandingList(transaction);
         } else if (input.equalsIgnoreCase("getQuickBalance")) {
-            System.out.println(replicatedAccountInfo.getBalance());
+            System.out.println("\n\nExecuting getQuickBalance");
+            System.out.println("Quick Balance" + replicatedAccountInfo.getBalance());
         } else if (input.equalsIgnoreCase("getSyncedBalance")) {
+            System.out.println("\n\nExecuting getSyncedBalance");
+            //generate transaction and add to the outstanding list
             Transaction transaction = new Transaction();
             transaction.setCommand(input);
             transaction.setUniqueId(clientName + " " +
@@ -166,20 +189,27 @@ public class ReplicatedBankAccount {
             System.out.println("Outstanding collection:");
             for (Transaction transaction : replicatedAccountInfo.getOutstandingList()) {
                 if (!transaction.getTransactionType().equals(TransactionType.SYNCED_BALANCE)) {
-                    System.out.println(transaction.getCommand());
+                    System.out.println(transaction.getUniqueId() + ":" + transaction.getCommand());
                 }
             }
             System.out.println("\n\nExecuted List:");
             for (Transaction transaction : replicatedAccountInfo.getExecutedList()) {
                 if (!transaction.getTransactionType().equals(TransactionType.SYNCED_BALANCE)) {
-                    System.out.println(transaction.getCommand());
+                    System.out.println(transaction.getUniqueId() + ":" + transaction.getCommand());
                 }
             }
 
-        } else if (input.equalsIgnoreCase("checkTxStatus (.*)")) {
+        } else if (input.matches("checkTxStatus (.*)")) {
             String[] arrOfStr = input.split(" ");
+            String transactionId = arrOfStr[1];
+            //generate transaction id if it is from the file
+            if (arrOfStr[1].contains("<")) {
+                transactionId = clientName + " " + (replicatedAccountInfo.getOutStandingCounter() - 1);
+            }
+            System.out.println("\n\nTransaction status of " + transactionId);
+            String finalTransactionId = transactionId;
             Transaction transactionInExecuted = replicatedAccountInfo.getExecutedList().stream()
-                    .filter(it -> it.getUniqueId().equals(arrOfStr[1])).findFirst().orElse(null);
+                    .filter(it -> it.getUniqueId().equals(finalTransactionId)).findFirst().orElse(null);
             if (transactionInExecuted != null) {
                 System.out.println(transactionInExecuted.getCommand() + "is executed.");
                 return;
@@ -192,10 +222,10 @@ public class ReplicatedBankAccount {
                 System.out.println("Transaction not found");
             }
         } else if (input.equalsIgnoreCase("cleanHistory")) {
+            System.out.println("Executing clean history");
             replicatedAccountInfo.setExecutedList(new ArrayList<>());
             replicatedAccountInfo.setOrderCounter(0);
         }
     }
-
 
 }
