@@ -1,14 +1,14 @@
-import spread.SpreadConnection;
-import spread.SpreadException;
-import spread.SpreadGroup;
-import spread.SpreadMessage;
+import spread.*;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -38,6 +38,38 @@ public class ReplicatedBankAccount {
         String clientName;
         try {
             connection.add(listener);
+            //Adding a basic listener to update balance to newly joined member
+            connection.add(new BasicMessageListener() {
+
+                @Override
+                public void messageReceived(SpreadMessage message) {
+
+                    if (message.isMembership()) {
+                        MembershipInfo membershipInfo = message.getMembershipInfo();
+                        if (membershipInfo.isCausedByJoin()) {
+                            // When someone new joins  update the banace
+                            if (!membershipInfo.getJoined().equals(
+                                    connection.getPrivateGroup())) {
+                                SpreadMessage msg = new SpreadMessage();
+                                Transaction transaction = new Transaction();
+                                transaction.setAmount(replicatedAccountInfo.getBalance());
+                                transaction.setTransactionType(TransactionType.INITIALIZE_BALANCE);
+                                try {
+                                    msg.setObject(transaction);
+                                    msg.setReliable();
+                                    msg.addGroup(accountName);
+                                    connection.multicast(msg);
+                                } catch (SpreadException e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        }
+
+                    }
+
+                }
+
+            });
             connection.connect(InetAddress.getByName(serverAddress), 8016, String.valueOf(id), false, true);
 
             //Create a group and join it with  the account
@@ -175,7 +207,7 @@ public class ReplicatedBankAccount {
             replicatedAccountInfo.addInOutStandingList(transaction);
         } else if (input.equalsIgnoreCase("getQuickBalance")) {
             System.out.println("\n\nExecuting getQuickBalance");
-            System.out.println("Quick Balance" + replicatedAccountInfo.getBalance());
+            System.out.println("Quick Balance: " + replicatedAccountInfo.getBalance());
         } else if (input.equalsIgnoreCase("getSyncedBalance")) {
             System.out.println("\n\nExecuting getSyncedBalance");
             //generate transaction and add to the outstanding list
@@ -200,8 +232,9 @@ public class ReplicatedBankAccount {
             }
 
         } else if (input.matches("checkTxStatus (.*)")) {
-            String firstPart = input.substring(1,input.indexOf(" ",1));
-            String secondPart = input.substring(firstPart.length()+2);;
+            String firstPart = input.substring(1, input.indexOf(" ", 1));
+            String secondPart = input.substring(firstPart.length() + 2);
+            ;
             //generate transaction id if it is from the file
             if (secondPart.contains("<")) {
                 secondPart = clientName + " " + (replicatedAccountInfo.getOutStandingCounter() - 1);

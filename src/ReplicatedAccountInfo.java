@@ -76,7 +76,7 @@ public class ReplicatedAccountInfo implements Serializable {
     public synchronized void addInterest(Transaction transaction) {
         Transaction transInList = this.outstandingList.stream()
                 .filter(it -> it.getUniqueId().equals(transaction.getUniqueId())).findFirst().orElse(null);
-        this.balance = this.balance + (1.0 + transaction.getAmount() / 100.0);
+        this.balance = this.balance * (1.0 + transaction.getAmount() / 100.0);
         this.executedList.add(transaction);
         this.orderCounter++;
         this.outstandingList.remove(transInList);

@@ -19,6 +19,9 @@ public class Listener implements AdvancedMessageListener {
                     case SYNCED_BALANCE:
                         ReplicatedBankAccount.replicatedAccountInfo.getSyncedBalance(transaction);
                         break;
+                    case INITIALIZE_BALANCE:
+                        ReplicatedBankAccount.replicatedAccountInfo.setBalance(transaction.getAmount());
+                        break;
                 }
 
         } catch (SpreadException e) {
